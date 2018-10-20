@@ -298,8 +298,8 @@ plot
 In order to be able to zoome in and out and assess which data point belongs to which country, we are going to plot this graph more interactively with `plotly`:
 
 ```{r}
-plot %>% 
-    ggplotly()
+# plot %>% 
+#     ggplotly()
 ```
 
 And thanks to [`huangjieying`](https://github.com/STAT545-UBC-students/hw05-huangjieying/blob/master/hw05_factor_and_figure_management.md), I found out about this amazing interactive visualization tool called [`gganimate`](https://github.com/thomasp85/gganimate). In order to install the animation package use:

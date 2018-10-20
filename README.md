@@ -8,8 +8,8 @@ This assignment and repository is developed and maintained by **Stefanie Lumnitz
 
 purpose | format
 ---------|--------
-[hw05-exercise](https://github.com/STAT545-UBC-students/hw03-slumnitz/blob/master/hw03-exercise.md) | .md
-[R markdown source code](https://github.com/STAT545-UBC-students/hw03-slumnitz/blob/master/hw03-exercise.Rmd) | .Rmd
+[hw05-exercise](https://github.com/STAT545-UBC-students/hw05-slumnitz/blob/master/hw05-exercise.md) | .md
+[R markdown source code](https://github.com/STAT545-UBC-students/hw05-slumnitz/blob/master/hw05-exercise.Rmd) | .Rmd
 
 
 
