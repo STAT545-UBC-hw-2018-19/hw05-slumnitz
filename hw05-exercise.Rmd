@@ -1,0 +1,371 @@
+---
+title: 'Homework 05: Factor and figure management'
+author: Stefanie Lumnitz
+date: "`r format(Sys.time(), '%d %B, %Y')`"   
+output:  
+  github_document:  
+    toc: yes
+always_allow_html: yes
+---
+
+```{r setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(error = TRUE, collapse = TRUE, comment = "#>")
+```
+
+### Load required packages
+
+```{r}
+suppressPackageStartupMessages(library(gapminder))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(grid))
+suppressPackageStartupMessages(library(scales))
+suppressPackageStartupMessages(library(gganimate))
+```
+
+
+# Part 1: Factor management
+
+## Functions:
+
+function | use
+---------|-----
+`factor(x)` or `forcats::parse_factor(x)` | convert x into a factor
+`levels()` | value of levels of factor
+`nlevels()` | count of levels of factor
+`forcats::fct_count()` | count 
+`droplevels()` | drop levels
+
+FIirst I will be checking wether there are any factors in our gapminder dataset:
+
+```{r}
+glimpse(gapminder)
+```
+
+Indeed, `country` and `continent` are factors, delineated by `<fct>`.
+
+```{r}
+sapply(gapminder, nlevels) %>% 
+  kable()
+```
+
+`nlevels()` shows us, that `country` has `142` levels, whereas `continent` has `5`. `year`, `lifeExp`, `pop` and `gdpPercap` do not have levels since they are not factors, how we discovered earlier. Let's test this in more detail:
+
+```{r}
+sapply(gapminder, is.factor) %>% 
+  kable()
+```
+
+Let's select all columns or variables for which `is.factor` is `TRUE` and check which values the `levels` contain:
+
+```{r}
+select_if(gapminder, is.factor) %>% 
+sapply(levels)
+```
+
+This returns all factor levels alphabetically sorted.
+
+
+
+## Drop Oceania and remove unused factor levels
+
+> Filter the Gapminder data to remove observations associated with the continent of Oceania. Additionally, remove unused factor levels. Provide concrete information on the data before and after removing these rows and Oceania; address the number of rows and the levels of the affected factors.
+
+```{r}
+drop_continent <- c("Oceania") # use vector to easily change which continent to drop
+
+rm_oceania <- gapminder %>% 
+  filter(continent != drop_continent)
+  
+unique(rm_oceania$continent) # check if Oceania obervations are removed
+```
+We can see here that eventhough all observations of `Oceania` have been removed, the factor level Oceania is still present but unused. Let's remove these unused factor levels and compare the gapminder dataset before and after. For an easy comparison I provide this function that can help visualize results in one go:
+
+```{r}
+mysummary_table <- function(df) {
+  tab <- data.frame(
+    "rows" = nrow(df),
+    "Continent_levels" = nlevels(df$continent),
+    "Country_levels" = nlevels(df$country))
+  return(tab)
+}
+```
+
+```{r, fig.width=8}
+drop_continent <- c("Oceania") # use vector to easily change which continent to drop
+
+five_continents <- gapminder %>% 
+    mysummary_table()
+    
+four_continents <- gapminder %>% 
+  filter(continent != drop_continent) %>% 
+  droplevels() %>% 
+  mysummary_table() 
+
+grid.arrange(textGrob("gapminder dataset",gp=gpar(fontsize=12)),
+             tableGrob(five_continents, rows=NULL),
+             textGrob("without Oceania",gp=gpar(fontsize=12)),
+             tableGrob(four_continents, rows=NULL), ncol=2)
+```
+
+We can see than we removed 24 rows, one continent factor level and 2 country factor levels. Let's find out which countries have been removed:
+
+```{r}
+gapminder %>% 
+  filter(continent=="Oceania") %>% 
+  select(country) %>% 
+  unique() %>% 
+  kable()
+```
+
+
+## Reorder the levels of country or continent using `forcats`
+
+> Reorder the levels of country or continent. Use the forcats package to change the order of the factor levels, based on a principled summary of one of the quantitative variables. Consider experimenting with a summary statistic beyond the most basic choice of the median.
+
+Remember that countries and continents were ordered in alphabetical order as shown above, let's try to change this order, sicne it does not always make sense to display data alphabetically ordered.
+
+In order to provide nice visualization on how and what changes, I will use the `Maximum GdP` variable over the timeframe of 1952-2007 for all countries in Asia as an example. Let's see how `fct_reorder` and `arrange()`:
+
+```{r, fig.height=6}
+
+gapminder %>%
+  filter(continent == "Asia") %>% 
+  group_by(country) %>% 
+  mutate(max_gdpPercap = max(gdpPercap)) %>%
+  ggplot(aes(x = max_gdpPercap, y = fct_reorder(country, gdpPercap, max),
+             color = country)) +
+  geom_point() + 
+  scale_x_log10(labels=comma_format()) +
+  xlab("Maximum gdp per capita") +
+  ylab("country") +
+  labs(title = "Maximum gdp per capita for countries in Asia") +
+  theme_bw()
+```
+
+In comparison, how does our visualization look like if we use `arrange()` for this task:
+
+```{r, fig.height=6}
+
+gapminder %>%
+  filter(continent == "Asia") %>% 
+  group_by(country) %>% 
+  mutate(max_gdpPercap = max(gdpPercap)) %>%
+  arrange(max_gdpPercap) %>% 
+  ggplot(aes(x = max_gdpPercap, y = country,
+             color = country)) +
+  geom_point() + 
+  scale_x_log10(labels=comma_format()) +
+  xlab("Maximum gdp per capita") +
+  ylab("country") +
+  labs(title = "Maximum gdp per capita for countries in Asia") +
+  theme_bw()
+```
+
+We can see that `arrange()` alone does not change the order of levels in a factor.How does it change if both `arrange()` and `fct_reorder()` are used:
+
+```{r, fig.height=6}
+
+gapminder %>%
+  filter(continent == "Asia") %>% 
+  group_by(country) %>% 
+  mutate(max_gdpPercap = max(gdpPercap)) %>%
+  arrange(max_gdpPercap) %>% 
+  ggplot(aes(x = max_gdpPercap, y = fct_reorder(country, gdpPercap, max),
+             color = country)) +
+  geom_point() + 
+  scale_x_log10(labels=comma_format()) +
+  xlab("Maximum gdp per capita") +
+  ylab("country") +
+  labs(title = "Maximum gdp per capita for countries in Asia") +
+  theme_bw()
+```
+
+Not surprising, `fct_reorder()` takes the lead and orders our levels. 
+
+
+
+# Part 2: File I/O and I want to do more
+
+> Experiment with one or more of write_csv()/read_csv() (and/or TSV friends), saveRDS()/readRDS(), dput()/dget(). Create something new, probably by filtering or grouped-summarization of Singer or Gapminder. I highly recommend you fiddle with the factor levels, i.e. make them non-alphabetical (see previous section). Explore whether this survives the round trip of writing to file then reading back in
+
+### My new dataset
+
+```{r}
+beverage <- tribble( # create a tibble
+                    ~country, ~beverage,
+                    "Germany", "beer",
+                    "Mexico", "tequila",
+                    "France", "wine",
+                    "Russia", "vodka",
+                    "Japan", "sake",
+                    "Grece", "ouzo",
+                    "Italy", "ramazotti")
+
+popularity <- tribble( # create a tibble
+                    ~beverage, ~popularity,
+                    "beer", 1,
+                    "tequila", 7,
+                    "wine", 2,
+                    "vodka", 6,
+                    "sake", 5,
+                    "ouzo", 3,
+                    "ramazotti", 4)
+
+# convert all columns to factors:
+beverage[] <- lapply(beverage, factor) # "[]" keeps the dataframe structure
+ col_names <- names(beverage)
+
+world_beverage <- right_join(beverage, popularity)
+
+# Check
+glimpse(world_beverage)
+```
+
+This dataset will be used to test if changed factor levels will be kept while data is saved and reloaded in multiple packages. [Stackoverflow](https://stackoverflow.com/questions/9251326/convert-data-frame-column-format-from-character-to-factor) helped me to create this factor-df. Interestingly, a join converts our variable `beverage` back to a `character`
+
+
+## Comparison
+
+
+Orignal dataframe:
+
+```{r}
+write_csv(world_beverage, "world_beverage_csv.csv")
+df_csv <- read_csv("world_beverage_csv.csv")
+
+saveRDS(world_beverage, "world_beverage_rds.rds")
+df_rds <- readRDS("world_beverage_rds.rds")
+
+dput(world_beverage, "world_beverage.txt")
+df_get <- dget("world_beverage.txt")
+
+comparison <- data.frame(
+    "csv" = sapply(df_csv, class),
+    "rds" = sapply(df_rds, class),
+    "get" = sapply(df_get, class))
+
+kable(comparison)
+```
+
+The comparison shows that `rds` and `txt` formats automatically parse to factor when saved or loaded. `read_csv()` on the other hand automatically parses variables and I get this message in the command line, while a check reveales that the data frame does not contain factors anymore:
+
+```
+Parsed with column specification:
+cols(
+  country = col_character(),
+  beverage = col_character(),
+  popularity = col_integer()
+)
+```
+The `read_csv()` documentation suggests:
+
+> col_factor() (f) allows you to load data directly into a factor if you know what the levels are.
+
+what happens if I specify these while loading:
+
+```{r}
+# df_csv <- read_csv("world_beverage_csv.csv",
+#                   col_types = cols(country = col_factor(),
+#                                    beverage = col_factor(),
+#                                    popularity = col_factor()
+#                                    )
+# )
+```
+
+It seems like this is not as straight forward as one also has to know the levels. And there is no option to safe these with the `.csv` according to the `write_csv()` [documentation](https://www.rdocumentation.org/packages/readr/versions/0.1.1/topics/write_csv. The best way forward to handle factors is therefore to choose one of the other two formats.
+
+
+# Part 3: Visualization design
+
+In this part I experiment with the [graphics](https://www.youtube.com/watch?v=hVimVzgtD6w) for which [gapminder](https://www.gapminder.org) got known: visualizing life expectancy over time. I however will explore how the connection between life expectancy, the population size and gdp per capita looks like for 2007 looks like.
+
+```{r, fig.height=4}
+plot <- gapminder %>% 
+  filter(year == "2007") %>% 
+  ggplot(aes(pop, lifeExp, size = gdpPercap, color = continent)) +
+  geom_point(alpha=0.4) +
+  scale_x_log10(labels=comma_format()) +
+  ggtitle("Life Expectancy over population Worldwide") +
+  xlab("Population") +
+  ylab("Life Expectancy") +
+  theme_minimal()
+plot
+```
+
+In order to be able to zoome in and out and assess which data point belongs to which country, we are going to plot this graph more interactively with `plotly`:
+
+```{r}
+plot %>% 
+    ggplotly()
+```
+
+And thanks to [`huangjieying`](https://github.com/STAT545-UBC-students/hw05-huangjieying/blob/master/hw05_factor_and_figure_management.md), I found out about this amazing interactive visualization tool called [`gganimate`](https://github.com/thomasp85/gganimate). In order to install the animation package use:
+
+```{r}
+# library(devtools) # load devtools package
+# devtools::install_github('thomasp85/gganimate',force = TRUE) 
+```
+
+```{r}
+
+ggplot(gapminder, aes(pop, lifeExp, size = gdpPercap, color = continent)) +
+geom_point(alpha=0.4) +
+scale_x_log10(labels=comma_format()) +
+theme_minimal() +
+labs(title = 'Year: {frame_time}', x = 'Population', y = 'Life Expectancy') +
+transition_time(year) # This needs to be added for gganimate
+```
+
+
+# Part 4: Writing figures to file
+
+> Use ggsave() to explicitly save a plot to file. Then use `![Alt text](/path/to/img.png)` to load and embed it in your report. You can play around with various options, such as:
+
+> Arguments of ggsave(), such as width, height, resolution or text scaling.
+Various graphics devices, e.g. a vector vs. raster format.
+Explicit provision of the plot object p via ggsave(..., plot = p). Show a situation in which this actually matters.
+
+Let's make another plot and save it:
+
+```{r}
+Life_Expectancy_viz <- gapminder %>% 
+  filter(year == "2007") %>% 
+  ggplot(aes(gdpPercap, lifeExp, size = pop, colour = country)) +
+  geom_point(alpha = 0.7, show.legend = FALSE) +
+  scale_colour_manual(values = country_colors) +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10(labels=comma_format()) +
+  facet_wrap(~continent) +
+  labs(title = 'Worldwide life expectancy over gdp in 2007', x = 'gdp per capita', y = 'life expectancy')
+
+ggsave("./plot/life_expectancy_viz.png")
+```
+
+![Load the plot here:](./plot/life_expectancy_viz.png)
+
+Different heights andresolutions:
+
+```{r}
+ggsave("./plot/viz_small.png", plot = Life_Expectancy_viz, width = 2, height = 2)
+
+ggsave("./plot/viz_tiny.jpeg", plot = Life_Expectancy_viz, device="jpeg")
+
+ggsave("./plot/viz_high_resolution.png", plot = Life_Expectancy_viz, dpi = 400)
+
+ggsave("./plot/viz_low_resolution.png", plot = Life_Expectancy_viz, dpi = 10)
+```
+
+![Small:](./plot/viz_small.png)
+
+Wee can see, that ggsave is only reducing the size of the graphics, but not the size of the text dimension. In comparison changing the resolution scales the size of graphic elements accordingly:
+
+![Small:](./plot/viz_high_resolution.png)
+
+![Small:](./plot/viz_low_resolution.png)
+
+It is also possible to use a different format:
+
+![Small:](./plot/viz_tiny.jpeg)
